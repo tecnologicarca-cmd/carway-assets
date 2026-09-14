@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste de CORS — CarWay</title>
+<style>
+  :root{
+    --bg:#0b1120; --card:#16213b; --card2:#1c2946; --linha:#26365c;
+    --txt:#e8eefc; --txt2:#93a4c8; --azul:#3b82f6; --verde:#22c55e;
+    --vermelho:#ef4444; --amarelo:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:24px 16px; background:var(--bg); color:var(--txt);
+    font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;
+    font-size:15px; line-height:1.55;
+  }
+  .caixa{max-width:720px;margin:0 auto}
+  h1{font-size:23px;margin:0 0 6px}
+  .sub{color:var(--txt2);font-size:13.5px;margin:0 0 22px}
+  label{display:block;font-size:11.5px;color:var(--txt2);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  input{
+    width:100%;background:var(--card);border:1px solid var(--linha);
+    color:var(--txt);border-radius:11px;padding:13px;font-size:14px;
+    font-family:inherit;
+  }
+  input:focus{outline:0;border-color:var(--azul)}
+  .btns{display:flex;gap:9px;flex-wrap:wrap;margin:16px 0 22px}
+  button{
+    flex:1;min-width:150px;border:0;border-radius:12px;padding:14px 16px;
+    font-size:14px;font-weight:700;cursor:pointer;color:#fff;
+  }
+  button:active{transform:scale(.98)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .b1{background:linear-gradient(135deg,var(--azul),#6366f1)}
+  .b2{background:linear-gradient(135deg,#059669,var(--verde))}
+  .b3{background:var(--card);border:1px solid var(--linha);color:var(--txt)}
+  .res{
+    background:var(--card);border:1px solid var(--linha);
+    border-left:4px solid var(--linha);border-radius:14px;
+    padding:15px 16px;margin-bottom:12px;
+  }
+  .res.ok{border-left-color:var(--verde);background:linear-gradient(150deg,var(--card),rgba(34,197,94,.07))}
+  .res.erro{border-left-color:var(--vermelho);background:linear-gradient(150deg,var(--card),rgba(239,68,68,.07))}
+  .res.rodando{border-left-color:var(--amarelo)}
+  .res h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .res p{margin:0 0 9px;font-size:13.5px;color:var(--txt2)}
+  pre{
+    background:#0a1020;border:1px solid var(--linha);border-radius:9px;
+    padding:12px;overflow-x:auto;font-size:11.5px;line-height:1.5;
+    color:#a5d6ff;margin:8px 0 0;white-space:pre-wrap;word-break:break-word;
+  }
+  .veredito{
+    border-radius:16px;padding:18px;margin-bottom:20px;font-size:14.5px;
+    display:none;
+  }
+  .veredito.mostrar{display:block}
+  .veredito.bom{background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.4);color:#bbf7d0}
+  .veredito.ruim{background:rgba(239,68,68,.13);border:1px solid rgba(239,68,68,.4);color:#fecaca}
+  .veredito b{display:block;font-size:16px;margin-bottom:6px;color:#fff}
+  .dica{font-size:12.5px;color:var(--txt2);margin-top:18px;
+    padding-top:14px;border-top:1px solid var(--linha)}
+  .dica b{color:var(--txt)}
+  .origem{
+    font-size:11.5px;color:var(--txt2);background:var(--card);
+    border:1px solid var(--linha);border-radius:9px;padding:9px 12px;
+    margin-bottom:18px;word-break:break-all;
+  }
+</style>
+</head>
+<body>
+<div class="caixa">
+
+  <h1>Teste de CORS</h1>
+  <p class="sub">
+    Descobre se o seu domínio consegue conversar com o Apps Script.
+    É o que decide se dá para migrar o CarWay.
+  </p>
+
+  <div class="origem" id="origem">Verificando origem…</div>
+
+  <div id="veredito" class="veredito"></div>
+
+  <label for="url">URL /exec do projeto de teste</label>
+  <input id="url" placeholder="https://script.google.com/macros/s/.../exec"
+         autocomplete="off" spellcheck="false">
+
+  <div class="btns">
+    <button class="b1" id="btnGet"  onclick="testarGet()">1 · Testar GET</button>
+    <button class="b2" id="btnPost" onclick="testarPost()">2 · Testar POST</button>
+    <button class="b3" onclick="limpar()">Limpar</button>
+  </div>
+
+  <div id="saida"></div>
+
+  <p class="dica">
+    <b>O que cada teste significa.</b><br>
+    O <b>GET</b> confirma que a URL está publicada e acessível.<br>
+    O <b>POST</b> é o que importa: é assim que o CarWay migrado vai
+    enviar os dados. Ele manda JSON com <code>Content-Type: text/plain</code>
+    de propósito, para evitar o preflight <code>OPTIONS</code> que o
+    Apps Script não sabe responder.
+  </p>
+
+</div>
+
+<script>
+(function () {
+  var el = document.getElementById('origem');
+  var protocolo = location.protocol;
+  var origem = location.origin || (protocolo + '//' + location.host);
+
+  if (protocolo === 'file:') {
+    el.innerHTML =
+      '<b style="color:#fcd34d">Atenção:</b> você abriu o arquivo direto do ' +
+      'computador (file://). O teste precisa rodar no seu domínio para valer. ' +
+      'Suba este arquivo na Hostinger.';
+  } else {
+    el.innerHTML = 'Origem desta página: <b>' + origem + '</b>' +
+      (protocolo === 'https:' ? ' · HTTPS ativo' :
+       ' · <span style="color:#fcd34d">sem HTTPS</span>');
+  }
+})();
+
+var resultados = { get: null, post: null };
+
+function pegarUrl() {
+  var u = document.getElementById('url').value.trim();
+  if (!u) {
+    alert('Cole a URL /exec do projeto de teste.');
+    return '';
+  }
+  if (u.indexOf('/exec') === -1) {
+    if (!confirm('Essa URL não termina em /exec. Continuar mesmo assim?')) return '';
+  }
+  return u;
+}
+
+function bloco(id, classe, titulo, texto, dados) {
+  var saida = document.getElementById('saida');
+  var div = document.getElementById(id);
+
+  if (!div) {
+    div = document.createElement('div');
+    div.id = id;
+    saida.appendChild(div);
+  }
+
+  div.className = 'res ' + classe;
+  div.innerHTML =
+    '<h3>' + titulo + '</h3>' +
+    '<p>' + texto + '</p>' +
+    (dados ? '<pre>' + dados + '</pre>' : '');
+}
+
+function avaliar() {
+  var v = document.getElementById('veredito');
+
+  if (resultados.post === true) {
+    v.className = 'veredito bom mostrar';
+    v.innerHTML =
+      '<b>Caminho livre — a migração é viável</b>' +
+      'O seu domínio conseguiu enviar POST para o Apps Script e receber ' +
+      'a resposta. É exatamente o que o CarWay precisa. Pode seguir para ' +
+      'a separação dos arquivos, service worker e PWA de verdade.';
+    return;
+  }
+
+  if (resultados.post === false) {
+    v.className = 'veredito ruim mostrar';
+    v.innerHTML =
+      '<b>O POST não passou</b>' +
+      'Antes de concluir, confira: a implantação está como ' +
+      '<b>"Quem tem acesso: Qualquer pessoa"</b>? A URL termina em ' +
+      '<b>/exec</b> (e não /dev)? Esta página está sendo servida pelo ' +
+      'seu domínio com HTTPS? Se tudo estiver certo e ainda falhar, ' +
+      'existe um plano B: um proxy leve na própria Hostinger.';
+  }
+}
+
+function testarGet() {
+  var url = pegarUrl();
+  if (!url) return;
+
+  var btn = document.getElementById('btnGet');
+  btn.disabled = true;
+
+  bloco('rGet', 'rodando', '⏳ GET', 'Chamando o servidor…', '');
+
+  var alvo = url + (url.indexOf('?') > -1 ? '&' : '?') + 'nome=CarWay';
+
+  fetch(alvo, { method: 'GET', redirect: 'follow' })
+    .then(function (r) {
+      return r.text().then(function (t) {
+        return { status: r.status, texto: t };
+      });
+    })
+    .then(function (r) {
+      var dados;
+      try { dados = JSON.stringify(JSON.parse(r.texto), null, 2); }
+      catch (e) { dados = r.texto.substring(0, 600); }
+
+      bloco('rGet', 'ok', '✅ GET funcionou',
+        'Status HTTP ' + r.status + '. A URL está publicada e acessível.',
+        dados);
+
+      resultados.get = true;
+      avaliar();
+    })
+    .catch(function (e) {
+      bloco('rGet', 'erro', '❌ GET falhou',
+        'Mensagem: ' + (e.message || e) +
+        '<br><br>Normalmente significa URL errada, implantação não ' +
+        'publicada, ou acesso restrito.',
+        '');
+
+      resultados.get = false;
+      avaliar();
+    })
+    .then(function () { btn.disabled = false; });
+}
+
+function testarPost() {
+  var url = pegarUrl();
+  if (!url) return;
+
+  var btn = document.getElementById('btnPost');
+  btn.disabled = true;
+
+  bloco('rPost', 'rodando', '⏳ POST', 'Enviando dados…', '');
+
+  var corpo = {
+    funcao: 'carregarApp',
+    sessao: 'token_de_teste_123',
+    args: [],
+    origem: location.origin
+  };
+
+  fetch(url, {
+    method: 'POST',
+    /* text/plain evita o preflight OPTIONS, que o Apps Script
+       nao responde. O conteudo continua sendo JSON. */
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(corpo),
+    redirect: 'follow'
+  })
+    .then(function (r) {
+      return r.text().then(function (t) {
+        return { status: r.status, texto: t };
+      });
+    })
+    .then(function (r) {
+      var dados;
+      try { dados = JSON.stringify(JSON.parse(r.texto), null, 2); }
+      catch (e) { dados = r.texto.substring(0, 600); }
+
+      bloco('rPost', 'ok', '✅ POST funcionou — caminho livre',
+        'Status HTTP ' + r.status + '. O servidor recebeu os dados e ' +
+        'respondeu. A arquitetura da migração está validada.',
+        dados);
+
+      resultados.post = true;
+      avaliar();
+    })
+    .catch(function (e) {
+      bloco('rPost', 'erro', '❌ POST falhou',
+        'Mensagem: ' + (e.message || e) +
+        '<br><br>Se a mensagem cita CORS ou "Failed to fetch", ' +
+        'abra o console do navegador (F12) para ver o detalhe exato.',
+        '');
+
+      resultados.post = false;
+      avaliar();
+    })
+    .then(function () { btn.disabled = false; });
+}
+
+function limpar() {
+  document.getElementById('saida').innerHTML = '';
+  document.getElementById('veredito').className = 'veredito';
+  resultados = { get: null, post: null };
+}
+</script>
+</body>
+</html>
